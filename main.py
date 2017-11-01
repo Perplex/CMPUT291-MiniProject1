@@ -118,9 +118,19 @@ def add_tables(conn):
       
     return
     
-def test_data    
-               
-           
+def test_data(conn):
+     c = conn.cursor()
+     
+     c.executescript("""
+       INSERT INTO agents VALUES
+       ("a0", "Shardul Shah", "penguin");
+       INSERT INTO customers VALUES
+       ("c0", "Ceegan Hale", "50th Street NW", "bear");
+       """) 
+       # this executescript POPULATES data into our tables; the purpose is to add test data.
+     conn.commit()
+     
+                     
 def main():
     
     path = "./mp1.db" # establishes DB
@@ -131,16 +141,9 @@ def main():
     username = ""
     password = ""
     
+    # Following two lines creates and populates data into the database. Remove before submitting (I think. FIXME)
     add_tables(conn)
-      
-    c.executescript("""
-      INSERT INTO agents VALUES
-      ("a0", "Shardul Shah", "penguin");
-      INSERT INTO customers VALUES
-      ("c0", "Ceegan Hale", "50th Street NW", "bear");
-      
-      """)
-    conn.commit()
+    test_data(conn)
     
     print("Welcome!")
     
@@ -202,8 +205,7 @@ def main():
             
             # Is it ok if the user is automatically logged in after sign up?
             password = new_pwd
-            username = new_cid
-                
+            username = new_cid            
     
     user_flag = login(conn, username, password)  
     # user_flag is the same as security level. That is:
