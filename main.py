@@ -118,23 +118,56 @@ def add_tables(conn):
     conn.commit() # save the tables in the DB ; actually commit the changes to the DB
       
     return
-    
+
+
 def test_data(conn):
-     c = conn.cursor()
+    c = conn.cursor()
      
-     c.executescript("""
+    c.executescript("""
        INSERT INTO agents VALUES
        ("a0", "Shardul Shah", "penguin");
        INSERT INTO customers VALUES
        ("c0", "Ceegan Hale", "50th Street NW", "bear");
        """) 
-       # this executescript POPULATES data into our tables; the purpose is to add test data.
-     conn.commit()
-     
-                     
+    # this executescript POPULATES data into our tables; the purpose is to add test data.
+    conn.commit()
+    return
+
+
+# Shardul
+def set_up_delivery():
+    return
+
+
+#Shardul
+def update_delivery():
+    return
+
+
+# Ceegan
+def add_to_stock():
+    return
+
+
+# Shardul
+def search_for_product():
+    return
+
+
+# Ceegan
+def place_an_order():
+    return
+
+
+# Ceegan
+def list_orders():
+    return
+
+
 def main():
-    
-    path = "./mp1.db" # establishes DB
+
+    # establishes DB
+    path = "./mp1.db"
     conn = sqlite3.connect(path)
     c = conn.cursor()
     c.execute('PRAGMA foreign_keys=ON;') # turns on FKs for the DB for the rest of the connection
@@ -144,11 +177,12 @@ def main():
     # Following two lines creates and populates data into the database. Remove before submitting (I think. FIXME)
     add_tables(conn)
     test_data(conn)
-    
-    first_time_resp = input("Welcome! Please choose one of the following options:\n1. Login\n2. Register  \n3. Quit\n\n>")
+
+    first_time_resp = input("Welcome! Please choose one of the following options:\n1. Login\n2. Register  \n3. Quit"
+                            "\n\n> ")
     
     while first_time_resp != '1' and first_time_resp != '2' and first_time_resp != '3':
-        print(">")
+        first_time_resp = input("> ")
         
     if first_time_resp == '1':
         user_flag = login(conn, input("\nUsername: "), input("Password: "))
@@ -188,10 +222,32 @@ def main():
     print("Security lvl: ", user_flag)
     
     if user_flag == 1:
-        print("Welcome to the agent interface")
         # agent commands
+        action = input("Welcome to the agent interface. Please choose from one of the following options\n"
+                       "1. Set up a delivery\n2. Update a delivery\n3. Add to stock\n\n> ")
+        while action != "1" and action != "2" and action != "3":
+            action = input("> ")
+
+        if action == 1:
+            set_up_delivery()
+        elif action == 2:
+            update_delivery()
+        elif action == 3:
+            add_to_stock()
+
     else:
-        print("Welcome to the customer interface")
+        action = input("Welcome to the customer interface. Please choose from one of the following options\n"
+                       "1. Search Products\n2. Place an order\n3. List orders\n\n> ")
+
+        while action != "1" and action != "2" and action != "3":
+            action = input("> ")
+
+        if action == 1:
+            search_for_product()
+        elif action == 2:
+            place_an_order()
+        elif action == 3:
+            list_orders()
 
     conn.close()
 
@@ -201,7 +257,8 @@ if __name__ == '__main__':
 # Questions to ask prof:
     #   Is it ok if the user is automatically logged in after sign up?
     # What exactly is the prof looking for in the "exit the program" option?
-    # Is the test gonna involve hard testing and trying to break EVERYTHING? Like, for example: first_time_user saying no, hes not one when in reality he is, which causes an infinite loop in the incorrect 'user/pass' section
+    # Is the test gonna involve hard testing and trying to break EVERYTHING? Like, for example: first_time_user saying
+    # no, hes not one when in reality he is, which causes an infinite loop in the incorrect 'user/pass' section
     # Is the "y/n" way fine?
     # Do we remove our test data in the end before submitting? How will they add the data?
 
@@ -211,4 +268,3 @@ if __name__ == '__main__':
     # Customer commands
     # More Test data
     # Option to exit anytime
-    
