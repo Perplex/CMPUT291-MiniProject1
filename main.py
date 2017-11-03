@@ -204,7 +204,7 @@ def main():
             print("\nThe given ID is NOT unique.")
             new_cid = input("Please enter a unique customer ID: \n")
 
-        print("\nSuccess! You have signed up.")
+        print("\nSuccess! You have signed up.\n")
 
         # Is it ok if the user is automatically logged in after sign up?
         user_flag = login(conn, new_cid, new_pwd)
@@ -224,8 +224,8 @@ def main():
     if user_flag == 1:
         # agent commands
         action = input("Welcome to the agent interface. Please choose from one of the following options\n"
-                       "1. Set up a delivery\n2. Update a delivery\n3. Add to stock\n\n> ")
-        while action != "1" and action != "2" and action != "3":
+                       "1. Set up a delivery\n2. Update a delivery\n3. Add to stock\n4. Quit\n\n> ")
+        while action != "1" and action != "2" and action != "3" and action != '4':
             action = input("> ")
 
         if action == 1:
@@ -237,7 +237,7 @@ def main():
 
     else:
         action = input("Welcome to the customer interface. Please choose from one of the following options\n"
-                       "1. Search Products\n2. Place an order\n3. List orders\n\n> ")
+                       "1. Search Products\n2. Place an order\n3. List orders\n4. Quit\n\n> ")
 
         while action != "1" and action != "2" and action != "3":
             action = input("> ")
