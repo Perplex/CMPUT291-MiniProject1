@@ -1,1 +1,1 @@
-# CMPUT291-MiniProject1
+# Blank intentionally
