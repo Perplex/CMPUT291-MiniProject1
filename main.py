@@ -372,7 +372,50 @@ def search_for_product():
 
 
 # Ceegan
-def place_an_order():
+def place_an_order(username, basket, conn):
+    c = conn.cursor()
+
+    c.execute('''select * from orders order by oid DESC limit 1''')
+    maxOid = c.fetchone()[0]
+
+    c.execute('''select address from customers where cid = ?''', (username,))
+    address = c.fetchone()[0]
+
+    c.execute('''insert into orders values (?, ?, DATE("now"), ?)''', (maxOid + 1, username, address))
+    conn.commit()
+
+    for item in basket:
+        c.execute('''select qty
+                     from carries
+                     where pid=? and sid=?''', (item[0], item[1]))
+
+        row = c.fetchone()
+        if item[2] > row[0]:
+            choice = input("\nThe quantity for " + item[0] + " is greater than what your selected store carries.\nWould"
+                                                             " you like change the qty (c) or delete the item (d)?: ")
+            while choice != "c" and choice != "d":
+                choice = "Invalid response, please try again: "
+
+            if choice == 'd':
+                basket = [x for x in basket if not item]
+            elif choice == 'c':
+                while item[2] > row[0]:
+                    choice = input("Please input the new quantity, new quantity must be equal to or less then " +
+                                   str(row[0]) + ": ")
+
+                    while not choice.isdigit():
+                        choice = input("Please input an integer: ")
+
+                    item[2] = int(choice)
+
+                c.execute('''insert into olines values (?, ?, ?, ?, ?)''', (maxOid + 1, item[1], item[0], item[2],
+                                                                            item[3]))
+                conn.commit()
+        else:
+            c.execute('''insert into olines values (?, ?, ?, ?, ?)''', (maxOid + 1, item[1], item[0], item[2],
+                                                                        item[3]))
+            conn.commit()
+
     return
 
 
@@ -380,10 +423,11 @@ def place_an_order():
 def list_orders(cid, conn):
     c = conn.cursor()
 
-    c.execute('''Select oid, odate, qty, uprice*qty
+    c.execute('''Select oid, odate, sum(qty), round(sum(uprice*qty), 2)
                  from orders
                  left join olines using(oid)
                  where cid = ?
+                 group by oid, odate
                  order by date(odate) desc''', (cid,))
 
     while True:
@@ -437,8 +481,11 @@ def main():
     c = conn.cursor()
     c.execute('PRAGMA foreign_keys=ON;') # turns on FKs for the DB for the rest of the connection
     conn.commit()
+
     user_flag = 0
-    basket = [] # basket, i.e shopping cart
+
+    # [pid, sid, qty, uprice] per element in basket
+    basket = []
     username = ''
 
     # Following two lines creates and populates data into the database. Remove before submitting (I think. FIXME)
@@ -512,9 +559,11 @@ def main():
                 action = input("> ")
 
             if action == "1":
-                search_for_product()
+                basket = search_for_product()
             elif action == "2":
-                place_an_order()
+                #basket = [["bak0", 0, 15, 3.29], ["bak1", 1, 5, 5.99], ["bak2", 1, 24, 5.99]]
+                place_an_order(username, basket, conn)
+                basket = []
             elif action == "3":
                 list_orders(username, conn)
             elif action == "4":
