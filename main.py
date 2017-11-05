@@ -1,6 +1,7 @@
 # Go to end of code for things to add/questions
 
 import sqlite3
+import os.path
 
 def login(conn, user, passw):
     cursor = conn.cursor()
@@ -376,36 +377,87 @@ def place_an_order():
 
 
 # Ceegan
-def list_orders():
+def list_orders(cid, conn):
+    c = conn.cursor()
+
+    c.execute('''Select oid, odate, qty, uprice*qty
+                 from orders
+                 left join olines using(oid)
+                 where cid = ?
+                 order by date(odate) desc''', (cid,))
+
+    while True:
+        rows = c.fetchmany(5)
+        for stuff in rows:
+            print(stuff)
+
+        choice = input("\nPlease select one of the following:\n1. Next five orders\n2. More info about an order\n"
+                       "3. Go Back"
+                       "\n\n> ")
+        while choice != "1" and choice != "2" and choice != "3":
+            choice = input("Please select one of the following:\n1. Next five orders\n2. More info about an order\n"
+                           "3. Go Back\n\n> ")
+        if choice == "3":
+            break
+        elif choice == "2":
+            choice = input("Please input the order ID that you would like to now more about: ")
+            d = conn.cursor()
+            d.execute('''select trackingno, pickUpTime, dropOffTime, address
+                         from orders
+                         left join deliveries using (oid)
+                         left join olines using (oid)
+                         where oid =?''', (choice, ))
+
+            row = d.fetchone()
+
+            if row:
+                print(row)
+
+                for lines in d.execute('''select sid, stores.name, pid, products.name, qty, unit, uprice
+                             from olines
+                             left join stores using (sid)
+                             left JOIN products using (pid)
+                             where oid = ?''', (choice,)):
+                    print(lines)
+            else:
+                print("Invalid order ID")
+
     return
 
 
 def main():
-    
+    path = ""
+    path = input("Welcome! Please input the path of the DB: ")
+
+    while not os.path.exists(path):
+        path = input("Unable to find DB, please try again: ")
+
     # establishes DB
-    path = "./mp1.db"
     conn = sqlite3.connect(path)
     c = conn.cursor()
     c.execute('PRAGMA foreign_keys=ON;') # turns on FKs for the DB for the rest of the connection
     conn.commit()
     user_flag = 0
     basket = [] # basket, i.e shopping cart
+    username = ''
 
     # Following two lines creates and populates data into the database. Remove before submitting (I think. FIXME)
     add_tables(conn)
     test_data(conn)
 
-    first_time_resp = input("Welcome! Please choose (press 1, 2, or 3) one of the following options:\n1. Login\n2. Register  \n3. Quit"
-                            "\n\n> ")
+    first_time_resp = input("\nPlease choose (press 1, 2, or 3) one of the following options:\n1. Login\n2. Register  "
+                            "\n3. Quit\n\n> ")
     
     while first_time_resp != '1' and first_time_resp != '2' and first_time_resp != '3':
         first_time_resp = input("> ")
         
     if first_time_resp == '1':
-        user_flag = login(conn, input("\nUsername: "), input("Password: "))
+        username = input("\nUsername: ")
+        user_flag = login(conn, username, input("Password: "))
         while user_flag == 0:
             print("You entered your password or username incorrectly. Please try again.")
-            user_flag = login(conn, input("\nUsername: "), input("Password: "))
+            username = input("\nUsername: ")
+            user_flag = login(conn, username, input("Password: "))
 
     elif first_time_resp == '2':
 
@@ -435,35 +487,38 @@ def main():
     # if user_flag = 2, user is a customer
     # if user_flag = 0, user is neither (should be impossible at this point according to our code)
          
-    print("Security lvl: ", user_flag, "\n")
+    print("Security lvl: ", user_flag)
     
     if user_flag == 1:
         # agent commands
-        action = input("Welcome to the agent interface. Please choose (press 1, 2, 3, or 4) from one of the following options:\n"
+        action = input("\nWelcome to the agent interface. Please choose from one of the following options:\n"
                        "1. Set up a delivery\n2. Update a delivery\n3. Add to stock\n4. Quit\n\n> ")
         while action != "1" and action != "2" and action != "3" and action != "4":
             action = input("> ")
 
-        if action == 1:
+        if action == "1":
             set_up_delivery()
-        elif action == 2:
+        elif action == "2":
             update_delivery()
-        elif action == 3:
+        elif action == "3":
             add_to_stock()
 
     else:
-        action = input("Welcome to the customer interface. Please choose (press 1, 2, 3 or 4) from one of the following options:\n"
-                       "1. Search Products\n2. Place an order\n3. List orders\n4. Quit\n\n> ")
+        while True:
+            action = input("\nWelcome to the customer interface. Please choose from one of the following options:\n"
+                           "1. Search Products\n2. Place an order\n3. List orders\n4. Quit\n\n> ")
 
-        while action != "1" and action != "2" and action != "3" and action != "4":
-            action = input("> ")
+            while action != "1" and action != "2" and action != "3" and action != "4":
+                action = input("> ")
 
-        if action == 1:
-            search_for_product()
-        elif action == 2:
-            place_an_order()
-        elif action == 3:
-            list_orders()
+            if action == "1":
+                search_for_product()
+            elif action == "2":
+                place_an_order()
+            elif action == "3":
+                list_orders(username, conn)
+            elif action == "4":
+                break
 
     conn.close()
 
