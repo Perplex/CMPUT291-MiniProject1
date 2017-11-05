@@ -362,7 +362,45 @@ def update_delivery():
 
 
 # Ceegan
-def add_to_stock():
+def add_to_stock(conn):
+    while True:
+        pid = input("\nPlease input the product ID for the product you would like to change: ")
+        sid = input("Now input the store ID for this product: ")
+
+        c = conn.cursor()
+
+        c.execute('''select qty from carries where sid=? and pid=?''', (sid, pid))
+        qty = c.fetchone()
+
+        if qty is None:
+            print("Sorry but the product and store IDs entered do not match. Please try again")
+        else:
+            amount = input("What is the amount of products to add to this store?: ")
+            choice = input("Would you like to change the unit price as well?(y/n): ")
+
+            while choice != 'y' and choice != 'n':
+                choice = input("Invalid response please try again (y/n): ")
+
+            qty = qty[0]
+            if choice == 'y':
+                uprice = input("Input the new unit price: ")
+                c.execute('''update carries set qty = ?, uprice = ? where sid=? and pid = ?''', (int(amount)+qty, uprice, sid,
+                                                                                                 pid))
+            else:
+                c.execute('''update carries set qty = ? where sid=? and pid = ?''', (int(amount)+qty, sid, pid))
+
+            conn.commit()
+
+            for row in c.execute('''select * from carries where sid =? and pid=?''', (sid, pid)):
+                print(row)
+
+            choice = input("Would you like to update another items stock? (y/n): ")
+            while choice != 'y' and choice != 'n':
+                choice = input("Invalid response, please try again (y/n): ")
+
+            if choice == 'n':
+                break
+
     return
 
 
@@ -538,17 +576,20 @@ def main():
     
     if user_flag == 1:
         # agent commands
-        action = input("\nWelcome to the agent interface. Please choose from one of the following options:\n"
-                       "1. Set up a delivery\n2. Update a delivery\n3. Add to stock\n4. Quit\n\n> ")
-        while action != "1" and action != "2" and action != "3" and action != "4":
-            action = input("> ")
+        while True:
+            action = input("\nWelcome to the agent interface. Please choose from one of the following options:\n"
+                           "1. Set up a delivery\n2. Update a delivery\n3. Add to stock\n4. Quit\n\n> ")
+            while action != "1" and action != "2" and action != "3" and action != "4":
+                action = input("> ")
 
-        if action == "1":
-            set_up_delivery()
-        elif action == "2":
-            update_delivery()
-        elif action == "3":
-            add_to_stock()
+            if action == "1":
+                set_up_delivery()
+            elif action == "2":
+                update_delivery()
+            elif action == "3":
+                add_to_stock(conn)
+            elif action == '4':
+                break
 
     else:
         while True:
