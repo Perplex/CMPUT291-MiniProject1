@@ -382,13 +382,15 @@ def set_up_delivery(conn):
     add_put = "" # string
 
     while True:
-        order_resp = input("Would you like to add (more) orders to the new delivery? (y/n): ")
+        order_resp = input("\nWould you like to add (more) orders to the new delivery? (y/n): ")
         while order_resp != 'y' and order_resp != 'n':
             order_resp = input("Invalid response, please try again (y/n): ")
         
         if order_resp == 'y':
             # FIXME add error checking for orderid; if agent puts an OID not in the DB
-            add_oid = int(input("Please enter the order ID for the order you want to add to the delivery: "))
+            for row in c.execute('''select * from orders'''):
+                print(row)
+            add_oid = int(input("\nPlease enter the order ID for the order you want to add to the delivery: "))
             
             PUT_resp = input("Would you like to add a pick up time for this order? (y/n): ")
             while PUT_resp != 'y' and PUT_resp != 'n':
@@ -415,12 +417,7 @@ def set_up_delivery(conn):
             print("Successfully added order to the delivery")      
                       
         else:
-            break        
-    
-    # FIXME: for testing purposes
-    c.execute("SELECT* FROM deliveries;")
-    rows = c.fetchall()
-    print(rows)
+            break
     
     return
 
@@ -434,7 +431,9 @@ def update_delivery(conn):
     c = conn.cursor()
     
     while True:
-        t_no = input("Please enter the tracking number of the delivery you want to update: ")
+        for row in c.execute('''select * from deliveries'''):
+            print(row)
+        t_no = input("\nPlease enter the tracking number of the delivery you want to update: ")
         c.execute("SELECT * FROM deliveries WHERE trackingNo=?;", (t_no,))
         row = c.fetchone()
     
@@ -501,7 +500,7 @@ def update_delivery(conn):
             conn.commit()
             print("Order deleted succesfully")
             
-        exit_resp = input("Please choose from one of the following options:\n" "1. Pick a new delivery to update. \n2. Exit update_delivery interface (1/2) \n\n")
+        exit_resp = input("Please choose from one of the following options:\n" "1. Pick a new delivery to update. \n2. Exit update_delivery interface (1/2) \n\n> ")
         if exit_resp == '2':
             break             
     return
@@ -591,7 +590,7 @@ def search_for_product(conn):
             matches.pop(key)
 
         choice = input("\nPlease select one of the following:\n1. See next five entries\n2. More details of a product\n"
-                       "3. Add an item to my basket\n4. Quit\n\n> ")
+                       "3. Add an item to my basket\n4. Go Back\n\n> ")
 
         if choice == '2':
             choice = input("Please input the product ID of the product that you would like to know more about: ")
