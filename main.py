@@ -189,7 +189,7 @@ def test_data(conn):
             (5, "pro9", 20, 1.99),
 
             (0, "bak0", 10, 3.29),
-            (0, "bak1", 25, 4.99),
+            (0, "bak10", 25, 4.99),
             (0, "bak2", 33, 5.99),
             (0, "del0", 50, 3.99),    
             (0, "mea1", 47, 12.99),
@@ -355,16 +355,19 @@ def test_data(conn):
     conn.commit()
     return
 
+
 def generate_UTN(conn):
     # generation of unique tracking number
     # function returns a UTN (Unique Tracking Number)
     c = conn.cursor()
     c.execute("""SELECT d1.trackingno FROM deliveries d1 ORDER BY trackingno DESC LIMIT 1;""")
-    row = c.fetchone()
+    unique_TN = c.fetchone()[0]
 
-    unique_TN = row[0] + 1
+    if unique_TN is None:
+        unique_TN = 0
     
-    return unique_TN 
+    return unique_TN + 1
+
 
 # Shardul
 def set_up_delivery(conn):
@@ -378,14 +381,13 @@ def set_up_delivery(conn):
     add_oid = 0 # int
     add_put = "" # string
 
-    
-    while True: 
+    while True:
         order_resp = input("Would you like to add (more) orders to the new delivery? (y/n): ")
         while order_resp != 'y' and order_resp != 'n':
             order_resp = input("Invalid response, please try again (y/n): ")
         
         if order_resp == 'y':
-            #FIXME add error checking for orderid; if agent puts an OID not in the DB
+            # FIXME add error checking for orderid; if agent puts an OID not in the DB
             add_oid = int(input("Please enter the order ID for the order you want to add to the delivery: "))
             
             PUT_resp = input("Would you like to add a pick up time for this order? (y/n): ")
@@ -423,7 +425,7 @@ def set_up_delivery(conn):
     return
 
 
-#Shardul
+# Shardul
 def update_delivery(conn):
     # change info of existing delivery
     # assumes if no order left in a delivery ,the delivery does not exist. Is this right? FIXME
@@ -548,59 +550,83 @@ def add_to_stock(conn):
     return
 
 
-# Shardul
+# Ceegan
 def search_for_product(conn):
     c = conn.cursor()
     
     keyword_string = input("Please enter one or more keywords to search for products, with a space separating each (e.g. egg yolk fresh): ")
     
     keyword_list = keyword_string.split()
-    
-    sql_str = "SELECT p.name, p.pid, p.unit, COUNT(distinct c.sid) FROM products p, carries c WHERE"
-    for i in range(len(keyword_list)):
-        if i == len(keyword_list) - 1:
-            sql_str+=" p.name LIKE ?"
-        else:
-            sql_str+=" p.name LIKE ? OR"
-            
-    sql_str = sql_str + "AND c.pid = p.pid GROUP BY p.name, p.pid, p.unit;" 
-                   
-    print(sql_str)
-    keyword_list_mod = []
-    
-    for i in range(len(keyword_list)):
-        keyword_list_mod.append('%'+keyword_list[i]+'%')
-      
-    c.execute(sql_str, tuple(keyword_list_mod))     # tuple(keyword_list) converts keyword_list into a tuple
-    rows = c.fetchall()
-    
-    products_result = []
-    products_result_byID = []
-    
-    for each in rows:
-        products_result.append(each[0])
-        products_result_byID.append(each[1])
-        print(each[0], each[1], each[2], each[3]) # product name, product id, product unit, # of stores that carry the product
-    
+    matches = {}
+    baseket = []
 
-    for i in products_result_byID: 
-        c.execute("SELECT count(distinct c.sid) FROM carries c WHERE c.pid=? AND c.qty!=0",(i,))
-        
-    rows = c.fetchall()
-    print(rows) # the number of stores for each product that actually has the product in stock
-    
-        
-    sorted_result = sorted(products_result, key=lambda x: difflib.SequenceMatcher(None, x, keyword_list).ratio(), reverse=True)    
-    print(sorted_result)   
-    # FIXME: 
-    # doesn't exactly work the way as intended... results aren't really sorted, as shown in https://stackoverflow.com/questions/17903706/how-to-sort-list-of-strings-by-best-match-difflib-ratio
-    # probably it's because I am using a list in SequenceMatcher() instead of a keyword, but then how do we match ALL the keywords given by the user?! 
-    # FIXME
-        
-    # code to sort the results in descending order (order) and print THESE results here:   
-    
-    
-    return
+    for keyword in keyword_list:
+        row = c.execute('''select pid, name, unit, count(sid), count(case when qty > 0 then 1 end), MIN(uprice)
+                           from products
+                           left join carries using (pid)
+                           where name like ?
+                           group by pid''', ('%' + keyword + '%',))
+        for item in row.fetchall():
+            if item in matches:
+                matches[item] += 1
+            else:
+                matches[item] = 1
+
+    print("PID|product name|unit|number of stores that carry|number of stores with in stock| min price of all stores")
+
+    while True:
+        if len(matches) < 5:
+            size = len(matches)
+        else:
+            size = 5
+        for x in range(size):
+            key = max(matches, key=matches.get)
+            print(key)
+            matches.pop(key)
+
+        choice = input("\nPlease select one of the following:\n1. See next five entries\n2. More details of a product\n"
+                       "3. Add an item to my basket\n4. Quit\n\n> ")
+
+        if choice == '2':
+            choice = input("Please input the product ID of the product that you would like to know more about: ")
+
+            row = c.execute('''select carries.pid, products.name, unit, cat, stores.name
+                               from products, stores, carries
+                               where products.pid = ? and products.pid = carries.pid and carries.sid = stores.sid''',
+                            (choice,))
+
+            for item in row.fetchall():
+                print(item)
+
+            choice = input("\nWould you like to add an item to your basket?(y/n) ")
+            if choice == 'y':
+                choice = '3'
+
+        if choice == '3':
+            pid = input("\nPlease input the product ID of the product you would like to add to your basket: ")
+            qty = input("How many would you like to add? ")
+
+            while not qty.isdigit() and int(qty) <= 0:
+                qty = input("Invalid qty, please try again: ")
+
+            row = c.execute('''select name, sid from carries left join stores using(sid) where pid = ?''', (pid,))
+            row = row.fetchall()
+
+            for x in range(len(row)):
+                print(str(x+1) + '. ' + row[x][0])
+
+            choice = input("\nPlease choose the store you would like to order from: ")
+
+            sid = row[int(choice)-1][1]
+
+            row = c.execute('''select uprice from carries where pid = ? and sid = ?''', (pid, sid))
+
+            baseket.append([pid, int(sid), int(qty), float(row.fetchone()[0])])
+
+        elif choice == '4':
+            break
+
+    return baseket
 
 
 # Ceegan
@@ -609,6 +635,9 @@ def place_an_order(username, basket, conn):
 
     c.execute('''select * from orders order by oid DESC limit 1''')
     maxOid = c.fetchone()[0]
+
+    if maxOid is None:
+        maxOid = 0
 
     c.execute('''select address from customers where cid = ?''', (username,))
     address = c.fetchone()[0]
@@ -707,6 +736,7 @@ def main():
 
     while not os.path.exists(path):
         path = input("Unable to find DB, please try again: ")
+
 
     # establishes DB
     conn = sqlite3.connect(path)
