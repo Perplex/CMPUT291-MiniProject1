@@ -238,7 +238,7 @@ def test_data(conn):
 
         -- Schema: oid* (int), cid (text), odate (date), address (text)
         INSERT INTO orders VALUES
-            (1000, "c0", DATETIME("now", "-8 days"), "His House, Probably"),
+            (1000, "c0", DATETIME("now", "-6 days"), "His House, Probably"),
             (1001, "c0", DATETIME("now", "-6 days"), "His House, Probably"),
             (1010, "c1", DATETIME("now", "-5 days"), "Not Edmonton"),
             (1011, "c1", DATETIME("now", "-2 days"), "Not Edmonton"),
@@ -269,6 +269,7 @@ def test_data(conn):
             (1000, 2, "dai1", 1, 6.23),
             (1000, 4, "mea1", 2, 12.99),
             (1000, 7, "oth0", 1, 7.99),
+            (1000, 0, "bak0", 1, 3.29),
             (1001, 0, "mea1", 1, 12.99),
             (1001, 7, "del9", 1, 7.99),
     
@@ -563,7 +564,7 @@ def search_for_product(conn):
 
     # search for keyword matches
     for keyword in keyword_list:
-        row = c.execute('''select pid, name, unit, count(sid), count(case when qty > 0 then 1 end), MIN(uprice)
+        row = c.execute('''select pid, name, unit, count(carries.sid), count(case when carries.qty > 0 then 1 end), MIN(carries.uprice), min(case when carries.qty > 0 then carries.uprice end)
                            from products
                            left join carries using (pid)
                            where name like ?
@@ -576,7 +577,7 @@ def search_for_product(conn):
             else:
                 matches[item] = 1
 
-    print("PID|product name|unit|number of stores that carry|number of stores with in stock| min price of all stores")
+    print("PID|product name|unit|number of stores that carry|number of stores with in stock|min price of all stores|min price of in stock")
 
     while True:
         # print products five at a time
@@ -866,6 +867,7 @@ def main():
             elif action == "4":
                 break
 
+    print('\nYou have been logged out')
     conn.close()
 
 if __name__ == '__main__':
