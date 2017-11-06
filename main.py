@@ -187,7 +187,7 @@ def test_data(conn):
             (5, "mea9", 15, 3.99),
             (5, "pro9", 20, 1.99),
 
-            (0, "bak0", 10, 3.29),
+            (0, "bak0", 0, 3.29),
             (0, "bak10", 25, 4.99),
             (0, "bak2", 33, 5.99),
             (0, "del0", 50, 3.99),    
@@ -596,9 +596,10 @@ def search_for_product(conn):
             choice = input("Please input the product ID of the product that you would like to know more about: ")
 
             # Getting more detials for desired product
-            row = c.execute('''select carries.pid, products.name, unit, cat, stores.name
+            row = c.execute('''select carries.pid, products.name, unit, cat, stores.name, uprice, qty
                                from products, stores, carries
-                               where products.pid = ? and products.pid = carries.pid and carries.sid = stores.sid''',
+                               where products.pid = ? and products.pid = carries.pid and carries.sid = stores.sid
+                               order by qty=0, uprice''',
                             (choice,))
 
             for item in row.fetchall():
