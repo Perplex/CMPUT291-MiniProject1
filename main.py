@@ -2,17 +2,18 @@
 
 import sqlite3
 import os.path
+import difflib
 
 def login(conn, user, passw):
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM agents WHERE aid=? and pwd=?", (user, passw))
+    cursor.execute("SELECT * FROM agents WHERE aid=? and pwd=?;", (user, passw))
     row = cursor.fetchone()
     conn.commit()
 
     if row is not None:
         return 1 # user is an agent
 
-    cursor.execute("SELECT * FROM customers WHERE cid=? and pwd=?", (user, passw))
+    cursor.execute("SELECT * FROM customers WHERE cid=? and pwd=?;", (user, passw))
     row = cursor.fetchone()
     conn.commit()
     
@@ -148,6 +149,9 @@ def test_data(conn):
         -- Schema: pid* (char6), name (text), unit (text), cat (char3)
         INSERT INTO products VALUES 
             ("bak0", "Bread, White, Sliced", "ea", "bak"),
+            ("bak10", "Bread, Brown, Sliced", "ea", "bak"),
+            ("bak11", "Bread, Bread, Bread, Bread, Bread", "ea", "bak"),
+            ("bak12", "Cheese Bread", "ea", "bak"),
             ("bak1", "Bagel, Everything, 6-pack", "ea", "bak"),
             ("bak2", "Pitas, Whole Wheat, 8-pack", "ea", "bak"),
             ("pro0", "Garlic, 3-pack", "ea", "pro"),
@@ -338,6 +342,7 @@ def test_data(conn):
             /* JOHN DOE tests: 190 fits, 191 and 192 don't */
             (190, 1090, DATETIME("now"), NULL),
             (191, 1091, DATETIME("now", "-1 hour"), DATETIME("now")),
+            (191, 1030, DATETIME("now"), NULL),
             (192, 1092, DATETIME("now", "-2 days"), NULL);
         
         INSERT INTO agents VALUES
@@ -350,14 +355,153 @@ def test_data(conn):
     conn.commit()
     return
 
+def generate_UTN(conn):
+    # generation of unique tracking number
+    # function returns a UTN (Unique Tracking Number)
+    c = conn.cursor()
+    c.execute("""SELECT d1.trackingno FROM deliveries d1 ORDER BY trackingno DESC LIMIT 1;""")
+    row = c.fetchone()
+
+    unique_TN = row[0] + 1
+    
+    return unique_TN 
 
 # Shardul
-def set_up_delivery():
+def set_up_delivery(conn):
+    # new delivery
+    
+    c = conn.cursor()
+    
+    # generation of unique tracking number
+    unique_TN = generate_UTN(conn)
+
+    add_oid = 0 # int
+    add_put = "" # string
+
+    
+    while True: 
+        order_resp = input("Would you like to add (more) orders to the new delivery? (y/n): ")
+        while order_resp != 'y' and order_resp != 'n':
+            order_resp = input("Invalid response, please try again (y/n): ")
+        
+        if order_resp == 'y':
+            #FIXME add error checking for orderid; if agent puts an OID not in the DB
+            add_oid = int(input("Please enter the order ID for the order you want to add to the delivery: "))
+            
+            PUT_resp = input("Would you like to add a pick up time for this order? (y/n): ")
+            while PUT_resp != 'y' and PUT_resp != 'n':
+                PUT_resp = input("Invalid response, please try again (y/n): ")
+                                
+            if PUT_resp == 'y':
+                print("Insert the date in a 'YYYY-MM-DD HH:MM:SS' format:\n ")
+                year = input("Insert YYYY: ")
+                month = input("Insert MM: ")
+                day = input("Insert DD: ")
+                hour = input("Insert HH: ")
+                minute = input("Insert MM: ")
+                second = input("Insert SS: " )
+                
+                add_put = year + '-' + month + '-' + day + ' ' + hour + ':' + minute + ':' + second # this is the required format to store datetime in SQLite3 ; it is the format SQLite stores datetimes in. i.e. time is stored in the YYYY-MM-DD HH:MM:SS format in SQLite3
+                
+            if add_put == "":
+                 c.execute("""INSERT INTO deliveries VALUES (?, ?, ?, ?);""", (unique_TN, add_oid, None, None))
+                 conn.commit()
+            else:
+                c.execute("""INSERT INTO deliveries VALUES (?, ?, ?, ?);""", (unique_TN, add_oid, add_put, None)) 
+                conn.commit()
+                               
+            print("Successfully added order to the delivery")      
+                      
+        else:
+            break        
+    
+    # FIXME: for testing purposes
+    c.execute("SELECT* FROM deliveries;")
+    rows = c.fetchall()
+    print(rows)
+    
     return
 
 
 #Shardul
-def update_delivery():
+def update_delivery(conn):
+    # change info of existing delivery
+    # assumes if no order left in a delivery ,the delivery does not exist. Is this right? FIXME
+    #FIXME add error checking for orderid; if agent puts an OID not in the DB
+    
+    c = conn.cursor()
+    
+    while True:
+        t_no = input("Please enter the tracking number of the delivery you want to update: ")
+        c.execute("SELECT * FROM deliveries WHERE trackingNo=?;", (t_no,))
+        row = c.fetchone()
+    
+        while row == None:
+            print("That tracking number does not exist in the system. Try again: ")
+            t_no = input("Please enter the tracking number of the delivery you want to update: ")
+            c.execute("SELECT * FROM deliveries WHERE trackingNo=?;", (t_no,))
+            row = c.fetchone()
+        
+        c.execute("SELECT * FROM deliveries WHERE trackingNo=?;", (t_no,))
+        rows = c.fetchall()    
+    
+        print("Here are the details of the delivery you selected: \n")
+    
+        for each in rows:
+            print("Tracking number: ", each[0], "\nOrder ID: ", each[1], "\nPick Up Time: ", each[2], "\nDrop Off Time: ", each[3], "\n")
+        
+        update_resp = input("\nWould you like to pick up an order? (y/n)?: ") 
+        while update_resp != 'y' and update_resp != 'n':
+            update_resp = input("Invalid response, please try again (y/n): ") 
+        
+        if update_resp == 'y':
+            oid = input("Please enter the order ID of the order you want to pick up:  ")
+        
+            #FIXME add error checking for orderid; if agent puts an OID not in the DB
+        
+            c.execute("SELECT * FROM deliveries WHERE trackingNo=? AND oid=?;", (t_no, oid))
+            row = c.fetchone()
+        
+            print("Following order picked up: \n")
+            print("Tracking number: ", row[0], "\nOrder ID: ", row[1], "\nPick Up Time: ", row[2], "\nDrop Off Time: ", row[3])
+        
+            PUT_resp = input("Would you like to update the pick up time of the order (y/n)?: ")
+            while PUT_resp != 'y' and PUT_resp != 'n':
+                PUT_resp = input("Invalid response, please try again (y/n): ")
+            
+            if PUT_resp == 'y':
+                new_PUT = input("Enter the new pick up time of the order in a 'YYYY-MM-DD HH:MM:SS' format: ")
+                c.execute(""" UPDATE deliveries SET pickUpTime=? WHERE trackingNo=? AND oid=?;""", (new_PUT, t_no, oid))
+                conn.commit()
+                # test FIXME
+                print("Pick up time updated to:", new_PUT)
+                    
+            DOT_resp = input("Would you like to update the drop off time of the order (y/n)?: ")
+            while DOT_resp != 'y' and DOT_resp != 'n':
+                DOT_resp = input("Invalid response, please try again (y/n): ")
+        
+            if DOT_resp == 'y':
+                new_DOT = input("Enter the new drop off time of the order in a 'YYYY-MM-DD HH:MM:SS' format: ")
+                c.execute(""" UPDATE deliveries SET dropOffTime=? WHERE trackingNo=? AND oid=?;""", (new_DOT, t_no, oid))
+                conn.commit()
+                # test FIXME
+                print("Drop off time updated to:", new_DOT)   
+               
+        update_resp = input("\nWould you like to remove an order from the delivery? (y/n)?: ") 
+        while update_resp != 'y' and update_resp != 'n':
+            update_resp = input("Invalid response, please try again (y/n): ")  
+        
+        if update_resp == 'y':
+            oid = input("Please enter the order ID of the order you want to remove from the delivery:  ")
+            #FIXME add error checking for orderid; if agent puts an OID not in the DB
+            
+            c.execute("""DELETE FROM deliveries WHERE trackingNo=? AND oid=?;""", (t_no, oid))
+            conn.commit()
+            print("Order deleted succesfully")
+            
+        exit_resp = input("Please choose from one of the following options:\n" "1. Pick a new delivery to update. \n2. Exit update_delivery interface (1/2) \n\n")
+        if exit_resp == '2':
+            break             
     return
 
 
@@ -405,7 +549,57 @@ def add_to_stock(conn):
 
 
 # Shardul
-def search_for_product():
+def search_for_product(conn):
+    c = conn.cursor()
+    
+    keyword_string = input("Please enter one or more keywords to search for products, with a space separating each (e.g. egg yolk fresh): ")
+    
+    keyword_list = keyword_string.split()
+    
+    sql_str = "SELECT p.name, p.pid, p.unit, COUNT(distinct c.sid) FROM products p, carries c WHERE"
+    for i in range(len(keyword_list)):
+        if i == len(keyword_list) - 1:
+            sql_str+=" p.name LIKE ?"
+        else:
+            sql_str+=" p.name LIKE ? OR"
+            
+    sql_str = sql_str + "AND c.pid = p.pid GROUP BY p.name, p.pid, p.unit;" 
+                   
+    print(sql_str)
+    keyword_list_mod = []
+    
+    for i in range(len(keyword_list)):
+        keyword_list_mod.append('%'+keyword_list[i]+'%')
+      
+    c.execute(sql_str, tuple(keyword_list_mod))     # tuple(keyword_list) converts keyword_list into a tuple
+    rows = c.fetchall()
+    
+    products_result = []
+    products_result_byID = []
+    
+    for each in rows:
+        products_result.append(each[0])
+        products_result_byID.append(each[1])
+        print(each[0], each[1], each[2], each[3]) # product name, product id, product unit, # of stores that carry the product
+    
+
+    for i in products_result_byID: 
+        c.execute("SELECT count(distinct c.sid) FROM carries c WHERE c.pid=? AND c.qty!=0",(i,))
+        
+    rows = c.fetchall()
+    print(rows) # the number of stores for each product that actually has the product in stock
+    
+        
+    sorted_result = sorted(products_result, key=lambda x: difflib.SequenceMatcher(None, x, keyword_list).ratio(), reverse=True)    
+    print(sorted_result)   
+    # FIXME: 
+    # doesn't exactly work the way as intended... results aren't really sorted, as shown in https://stackoverflow.com/questions/17903706/how-to-sort-list-of-strings-by-best-match-difflib-ratio
+    # probably it's because I am using a list in SequenceMatcher() instead of a keyword, but then how do we match ALL the keywords given by the user?! 
+    # FIXME
+        
+    # code to sort the results in descending order (order) and print THESE results here:   
+    
+    
     return
 
 
@@ -583,9 +777,9 @@ def main():
                 action = input("> ")
 
             if action == "1":
-                set_up_delivery()
+                set_up_delivery(conn)
             elif action == "2":
-                update_delivery()
+                update_delivery(conn)
             elif action == "3":
                 add_to_stock(conn)
             elif action == '4':
@@ -600,7 +794,7 @@ def main():
                 action = input("> ")
 
             if action == "1":
-                basket = search_for_product()
+                basket = search_for_product(conn)
             elif action == "2":
                 #basket = [["bak0", 0, 15, 3.29], ["bak1", 1, 5, 5.99], ["bak2", 1, 24, 5.99]]
                 place_an_order(username, basket, conn)
@@ -631,3 +825,4 @@ if __name__ == '__main__':
     # Customer commands
     # More Test data
     # Option to exit anytime
+
