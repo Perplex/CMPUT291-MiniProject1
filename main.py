@@ -2,7 +2,6 @@
 
 import sqlite3
 import os.path
-import difflib
 
 def login(conn, user, passw):
     cursor = conn.cursor()
@@ -553,19 +552,24 @@ def add_to_stock(conn):
 # Ceegan
 def search_for_product(conn):
     c = conn.cursor()
-    
+
+    # Get keywords to search for
     keyword_string = input("Please enter one or more keywords to search for products, with a space separating each (e.g. egg yolk fresh): ")
-    
     keyword_list = keyword_string.split()
+
+    # init variables
     matches = {}
     baseket = []
 
+    # search for keyword matches
     for keyword in keyword_list:
         row = c.execute('''select pid, name, unit, count(sid), count(case when qty > 0 then 1 end), MIN(uprice)
                            from products
                            left join carries using (pid)
                            where name like ?
                            group by pid''', ('%' + keyword + '%',))
+
+        # Keep track of amount of matches per product
         for item in row.fetchall():
             if item in matches:
                 matches[item] += 1
@@ -575,6 +579,7 @@ def search_for_product(conn):
     print("PID|product name|unit|number of stores that carry|number of stores with in stock| min price of all stores")
 
     while True:
+        # print products five at a time
         if len(matches) < 5:
             size = len(matches)
         else:
@@ -590,6 +595,7 @@ def search_for_product(conn):
         if choice == '2':
             choice = input("Please input the product ID of the product that you would like to know more about: ")
 
+            # Getting more detials for desired product
             row = c.execute('''select carries.pid, products.name, unit, cat, stores.name
                                from products, stores, carries
                                where products.pid = ? and products.pid = carries.pid and carries.sid = stores.sid''',
@@ -598,17 +604,21 @@ def search_for_product(conn):
             for item in row.fetchall():
                 print(item)
 
+            # Checking if user wants to add a product to basket
             choice = input("\nWould you like to add an item to your basket?(y/n) ")
             if choice == 'y':
                 choice = '3'
 
+        # Add item to basket
         if choice == '3':
             pid = input("\nPlease input the product ID of the product you would like to add to your basket: ")
             qty = input("How many would you like to add? ")
 
+            # Error check qty
             while not qty.isdigit() and int(qty) <= 0:
                 qty = input("Invalid qty, please try again: ")
 
+            # fetch all stores that carry desired product
             row = c.execute('''select name, sid from carries left join stores using(sid) where pid = ?''', (pid,))
             row = row.fetchall()
 
@@ -619,8 +629,10 @@ def search_for_product(conn):
 
             sid = row[int(choice)-1][1]
 
+            # Get uprice for product from store
             row = c.execute('''select uprice from carries where pid = ? and sid = ?''', (pid, sid))
 
+            # Add item to basket
             baseket.append([pid, int(sid), int(qty), float(row.fetchone()[0])])
 
         elif choice == '4':
@@ -633,25 +645,33 @@ def search_for_product(conn):
 def place_an_order(username, basket, conn):
     c = conn.cursor()
 
+    # get most recent order ID
     c.execute('''select * from orders order by oid DESC limit 1''')
     maxOid = c.fetchone()[0]
 
+    # If no orders have been made yet
     if maxOid is None:
         maxOid = 0
 
+    # Get user address
     c.execute('''select address from customers where cid = ?''', (username,))
     address = c.fetchone()[0]
 
+    # Insert new order into orders
     c.execute('''insert into orders values (?, ?, DATE("now"), ?)''', (maxOid + 1, username, address))
     conn.commit()
 
+    # for item in basket insert into olines
     for item in basket:
         c.execute('''select qty
                      from carries
                      where pid=? and sid=?''', (item[0], item[1]))
 
+        # If the quantity is greater then the store carries
         row = c.fetchone()
         if item[2] > row[0]:
+
+            # Input new qty or delete
             choice = input("\nThe quantity for " + item[0] + " is greater than what your selected store carries.\nWould"
                                                              " you like change the qty (c) or delete the item (d)?: ")
             while choice != "c" and choice != "d":
@@ -669,14 +689,17 @@ def place_an_order(username, basket, conn):
 
                     item[2] = int(choice)
 
+                # Insert changed qty item into olines
                 c.execute('''insert into olines values (?, ?, ?, ?, ?)''', (maxOid + 1, item[1], item[0], item[2],
                                                                             item[3]))
                 conn.commit()
         else:
+            # Insert item into olines
             c.execute('''insert into olines values (?, ?, ?, ?, ?)''', (maxOid + 1, item[1], item[0], item[2],
                                                                         item[3]))
             conn.commit()
 
+    print("Items have been ordered!")
     return
 
 
@@ -684,6 +707,7 @@ def place_an_order(username, basket, conn):
 def list_orders(cid, conn):
     c = conn.cursor()
 
+    # Get all orders
     c.execute('''Select oid, odate, sum(qty), round(sum(uprice*qty), 2)
                  from orders
                  left join olines using(oid)
@@ -691,11 +715,15 @@ def list_orders(cid, conn):
                  group by oid, odate
                  order by date(odate) desc''', (cid,))
 
+    # Continue till user wants to go back
     while True:
+
+        # Print five orders
         rows = c.fetchmany(5)
         for stuff in rows:
             print(stuff)
 
+        # Get user input then error check
         choice = input("\nPlease select one of the following:\n1. Next five orders\n2. More info about an order\n"
                        "3. Go Back"
                        "\n\n> ")
@@ -705,6 +733,8 @@ def list_orders(cid, conn):
         if choice == "3":
             break
         elif choice == "2":
+            # Getting more details
+
             choice = input("Please input the order ID that you would like to now more about: ")
             d = conn.cursor()
             d.execute('''select trackingno, pickUpTime, dropOffTime, address
@@ -715,6 +745,7 @@ def list_orders(cid, conn):
 
             row = d.fetchone()
 
+            # Order ID is valid
             if row:
                 print(row)
 
