@@ -1,4 +1,5 @@
 # Go to end of code for things to add/questions
+#By Shardul Shah and Ceegan Hale
 
 import sqlite3
 import os.path
@@ -881,11 +882,4 @@ if __name__ == '__main__':
     # Do we need a separate login option for agents and customers?
     # Do we remove our test data in the end before submitting? How will they add the data?
     # Do we need a quit message?
-
-# Things to add: 
-    # Bucket list
-    # Agent commands
-    # Customer commands
-    # More Test data
-    # Option to exit anytime
 
